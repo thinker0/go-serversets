@@ -2,7 +2,7 @@ package serversets
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net"
 	"sort"
 	"strconv"
@@ -65,6 +65,36 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 	go func() {
 		defer watch.wg.Done()
 		for {
+			// Connection was closed try to reconnect
+			if connection == nil {
+				time.Sleep(5 * time.Second)
+				connection, sessionEvents, err = ss.connectToZookeeper()
+				if err != nil {
+					log.Printf("unable to reconnect to zookeeper after session expired: %v", err)
+					watchEvents = nil
+					continue
+				}
+			}
+
+			// Starting the watch has failed, retry
+			if watchEvents == nil {
+				keys, watchEvents, err = watch.watch(connection)
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					log.Printf("unable to reregister endpoint after session expired: %v", err)
+					continue
+				}
+
+				watch.endpoints, err = watch.updateEndpoints(connection, keys)
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					log.Printf("unable to update endpoint list after session expired: %v", err)
+					watchEvents = nil
+					continue
+				}
+				watch.triggerEvent()
+			}
+
 			select {
 			case event := <-sessionEvents:
 				if event.Type == zk.EventSession && event.State == zk.StateExpired {
@@ -74,12 +104,15 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 			case <-watchEvents:
 				keys, watchEvents, err = watch.watch(connection)
 				if err != nil {
-					panic(fmt.Errorf("unable to rewatch endpoint after znode event: %v", err))
+					log.Printf("unable to rewatch endpoint after znode event: %v", err)
+					break
 				}
 
 				endpoints, err := watch.updateEndpoints(connection, keys)
 				if err != nil {
-					panic(fmt.Errorf("unable to updated endpoint list after znode event: %v", err))
+					log.Printf("unable to updated endpoint list after znode event: %v", err)
+					watchEvents = nil
+					break
 				}
 
 				watch.lock.Lock()
@@ -91,25 +124,6 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 			case <-watch.done:
 				connection.Close()
 				return
-			}
-
-			if connection == nil {
-				connection, sessionEvents, err = ss.connectToZookeeper()
-				if err != nil {
-					panic(fmt.Errorf("unable to reconnect to zookeeper after session expired: %v", err))
-				}
-
-				keys, watchEvents, err = watch.watch(connection)
-				if err != nil {
-					panic(fmt.Errorf("unable to reregister endpoint after session expired: %v", err))
-				}
-
-				watch.endpoints, err = watch.updateEndpoints(connection, keys)
-				if err != nil {
-					panic(fmt.Errorf("unable to update endpoint list after session expired: %v", err))
-				}
-
-				watch.triggerEvent()
 			}
 		}
 	}()
