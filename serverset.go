@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/influxdata/telegraf/plugins/inputs/webhooks/rollbar"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -22,8 +23,8 @@ var (
 // BaseZnodePath allows for a custom Zookeeper directory structure.
 // This function should return the path where you want the service's members to live.
 // Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/discovery`
-var BaseZnodePath = func(environment Environment, service string) string {
-	return BaseDirectory + "/" + string(environment) + "/" + service
+var BaseZnodePath = func(role, string, environment Environment, service string) string {
+	return BaseDirectory + "/" + role + "/" + string(environment) + "/" + service
 }
 
 // An Environment is the test/staging/production state of the service.
@@ -44,6 +45,7 @@ var DefaultZKTimeout = 5 * time.Second
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
 	ZKTimeout   time.Duration
+	role        string
 	environment Environment
 	service     string
 	zkServers   []string
@@ -52,14 +54,14 @@ type ServerSet struct {
 // New creates a new ServerSet object that can then be watched
 // or have an endpoint added to. The service name must not contain
 // any slashes. Will panic if it does.
-func New(environment Environment, service string, zookeepers []string) *ServerSet {
+func New(role string, environment Environment, service string, zookeepers []string) *ServerSet {
 	if strings.Contains(service, "/") {
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
 
 	ss := &ServerSet{
-		ZKTimeout: DefaultZKTimeout,
-
+		ZKTimeout:   DefaultZKTimeout,
+		role:        role,
 		environment: environment,
 		service:     service,
 		zkServers:   zookeepers,
