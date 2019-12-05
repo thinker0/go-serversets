@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/influxdata/telegraf/plugins/inputs/webhooks/rollbar"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
@@ -23,20 +22,9 @@ var (
 // BaseZnodePath allows for a custom Zookeeper directory structure.
 // This function should return the path where you want the service's members to live.
 // Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/discovery`
-var BaseZnodePath = func(role, string, environment Environment, service string) string {
-	return BaseDirectory + "/" + role + "/" + string(environment) + "/" + service
+var BaseZnodePath = func(role, environment, service string) string {
+	return BaseDirectory + "/" + role + "/" + environment + "/" + service
 }
-
-// An Environment is the test/staging/production state of the service.
-type Environment string
-
-// Typically used environments
-const (
-	Local      Environment = "local"
-	Production Environment = "prod"
-	Test       Environment = "test"
-	Staging    Environment = "staging"
-)
 
 // DefaultZKTimeout is the zookeeper timeout used if it is not overwritten.
 var DefaultZKTimeout = 5 * time.Second
@@ -46,7 +34,7 @@ var DefaultZKTimeout = 5 * time.Second
 type ServerSet struct {
 	ZKTimeout   time.Duration
 	role        string
-	environment Environment
+	environment string
 	service     string
 	zkServers   []string
 }
@@ -54,7 +42,7 @@ type ServerSet struct {
 // New creates a new ServerSet object that can then be watched
 // or have an endpoint added to. The service name must not contain
 // any slashes. Will panic if it does.
-func New(role string, environment Environment, service string, zookeepers []string) *ServerSet {
+func New(role string, environment string, service string, zookeepers []string) *ServerSet {
 	if strings.Contains(service, "/") {
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
@@ -82,7 +70,7 @@ func (ss *ServerSet) connectToZookeeper() (*zk.Conn, <-chan zk.Event, error) {
 
 // directoryPath returns the base path of where all the ephemeral nodes will live.
 func (ss *ServerSet) directoryPath() string {
-	return BaseZnodePath(ss.environment, ss.service)
+	return BaseZnodePath(ss.role, ss.environment, ss.service)
 }
 
 func splitPaths(fullPath string) []string {

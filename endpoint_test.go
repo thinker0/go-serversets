@@ -7,7 +7,7 @@ import (
 )
 
 func TestEndpointSameName(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		panic(err)
@@ -37,7 +37,7 @@ func TestEndpointSameName(t *testing.T) {
 }
 
 func TestEndpointPingInitiallyUp(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		panic(err)
@@ -82,7 +82,7 @@ func TestEndpointPingInitiallyUp(t *testing.T) {
 }
 
 func TestEndpointPingInitiallyDown(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		panic(err)
@@ -128,7 +128,7 @@ func TestEndpointPingInitiallyDown(t *testing.T) {
 }
 
 func TestEndpointClosePingRoutine(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 
 	ping := 0
 	ep, err := set.RegisterEndpoint("localhost", 1, func() error {
@@ -149,7 +149,7 @@ func TestEndpointClosePingRoutine(t *testing.T) {
 }
 
 func TestEndpointMultipleClose(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 
 	ep, err := set.RegisterEndpoint("localhost", 1, nil)
 	if err != nil {
