@@ -12,7 +12,7 @@ import (
 var (
 	// BaseDirectory is the Zookeeper namespace that all nodes made by this package will live.
 	// This path must begin with '/'
-	BaseDirectory = "/discovery"
+	BaseDirectory = "/aurora"
 
 	// MemberPrefix is prefix for the Zookeeper sequential ephemeral nodes.
 	// member_ is used by Finagle server sets.
@@ -114,6 +114,7 @@ func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
 type Entity struct {
 	ServiceEndpoint     endpoint            `json:"serviceEndpoint"`
 	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"`
+	Shard 				int64 				`json:"shard"`
 	Status              string              `json:"status"`
 }
 
@@ -126,6 +127,8 @@ func newEntity(host string, port int) *Entity {
 	return &Entity{
 		ServiceEndpoint:     endpoint{host, port},
 		AdditionalEndpoints: make(map[string]endpoint),
+		// TODO shard number
+		Shard:				 0,
 		Status:              statusAlive,
 	}
 }
