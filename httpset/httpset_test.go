@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/strava/go.serversets/fixedset"
+	"github.com/thinker0/go.serversets/fixedset"
 )
 
 func TestNew(t *testing.T) {

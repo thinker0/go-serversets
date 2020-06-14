@@ -2,7 +2,7 @@ package serversets
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net"
 	"sort"
 	"strconv"
@@ -33,7 +33,7 @@ type Watch struct {
 
 	// lock for read/writing the endpoints slice
 	lock      sync.RWMutex
-	endpoints []string
+	endpoints []Entity
 }
 
 // Watch creates a new watch on this server set. Changes to the set will
@@ -65,6 +65,36 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 	go func() {
 		defer watch.wg.Done()
 		for {
+			// Connection was closed try to reconnect
+			if connection == nil {
+				time.Sleep(5 * time.Second)
+				connection, sessionEvents, err = ss.connectToZookeeper()
+				if err != nil {
+					log.Printf("unable to reconnect to zookeeper after session expired: %v", err)
+					watchEvents = nil
+					continue
+				}
+			}
+
+			// Starting the watch has failed, retry
+			if watchEvents == nil {
+				keys, watchEvents, err = watch.watch(connection)
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					log.Printf("unable to reregister endpoint after session expired: %v", err)
+					continue
+				}
+
+				watch.endpoints, err = watch.updateEndpoints(connection, keys)
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					log.Printf("unable to update endpoint list after session expired: %v", err)
+					watchEvents = nil
+					continue
+				}
+				watch.triggerEvent()
+			}
+
 			select {
 			case event := <-sessionEvents:
 				if event.Type == zk.EventSession && event.State == zk.StateExpired {
@@ -74,12 +104,15 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 			case <-watchEvents:
 				keys, watchEvents, err = watch.watch(connection)
 				if err != nil {
-					panic(fmt.Errorf("unable to rewatch endpoint after znode event: %v", err))
+					log.Printf("unable to rewatch endpoint after znode event: %v", err)
+					break
 				}
 
 				endpoints, err := watch.updateEndpoints(connection, keys)
 				if err != nil {
-					panic(fmt.Errorf("unable to updated endpoint list after znode event: %v", err))
+					log.Printf("unable to updated endpoint list after znode event: %v", err)
+					watchEvents = nil
+					break
 				}
 
 				watch.lock.Lock()
@@ -92,25 +125,6 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 				connection.Close()
 				return
 			}
-
-			if connection == nil {
-				connection, sessionEvents, err = ss.connectToZookeeper()
-				if err != nil {
-					panic(fmt.Errorf("unable to reconnect to zookeeper after session expired: %v", err))
-				}
-
-				keys, watchEvents, err = watch.watch(connection)
-				if err != nil {
-					panic(fmt.Errorf("unable to reregister endpoint after session expired: %v", err))
-				}
-
-				watch.endpoints, err = watch.updateEndpoints(connection, keys)
-				if err != nil {
-					panic(fmt.Errorf("unable to update endpoint list after session expired: %v", err))
-				}
-
-				watch.triggerEvent()
-			}
 		}
 	}()
 
@@ -119,6 +133,19 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 
 // Endpoints returns a slice of the current list of servers/endpoints associated with this watch.
 func (w *Watch) Endpoints() []string {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	endpoints := make([]string, 0, len(w.endpoints))
+	for _, e := range w.endpoints {
+		endpoints = append(endpoints, net.JoinHostPort(e.ServiceEndpoint.Host, strconv.Itoa(e.ServiceEndpoint.Port)))
+	}
+
+	sort.Strings(endpoints)
+	return endpoints
+}
+
+// EndpointEntities returns a slice of the current list of Entites associated with this watch, collected at the last event.
+func (w *Watch) EndpointEntities() []Entity {
 	w.lock.RLock()
 	defer w.lock.RUnlock()
 
@@ -172,8 +199,8 @@ func (w *Watch) watch(connection *zk.Conn) ([]string, <-chan zk.Event, error) {
 	return children, events, err
 }
 
-func (w *Watch) updateEndpoints(connection *zk.Conn, keys []string) ([]string, error) {
-	endpoints := make([]string, 0, len(keys))
+func (w *Watch) updateEndpoints(connection *zk.Conn, keys []string) ([]Entity, error) {
+	endpoints := make([]Entity, 0, len(keys))
 
 	for _, k := range keys {
 		if !strings.HasPrefix(k, MemberPrefix) {
@@ -191,16 +218,15 @@ func (w *Watch) updateEndpoints(connection *zk.Conn, keys []string) ([]string, e
 		}
 
 		if e.Status == statusAlive {
-			endpoints = append(endpoints, net.JoinHostPort(e.ServiceEndpoint.Host, strconv.Itoa(e.ServiceEndpoint.Port)))
+			endpoints = append(endpoints, *e)
 		}
 	}
 
-	sort.Strings(endpoints)
 	return endpoints, nil
 
 }
 
-func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*entity, error) {
+func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*Entity, error) {
 
 	data, _, err := connection.Get(w.serverSet.directoryPath() + "/" + key)
 	if err == zk.ErrNoNode {
@@ -221,7 +247,7 @@ func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*entity, error) {
 		return w.getEndpoint(connection, key)
 	}
 
-	e := &entity{}
+	e := &Entity{}
 	err = json.Unmarshal(data, &e)
 	if err != nil {
 		return nil, err

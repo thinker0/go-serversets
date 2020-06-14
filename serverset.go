@@ -12,7 +12,7 @@ import (
 var (
 	// BaseDirectory is the Zookeeper namespace that all nodes made by this package will live.
 	// This path must begin with '/'
-	BaseDirectory = "/discovery"
+	BaseDirectory = "/aurora"
 
 	// MemberPrefix is prefix for the Zookeeper sequential ephemeral nodes.
 	// member_ is used by Finagle server sets.
@@ -22,20 +22,9 @@ var (
 // BaseZnodePath allows for a custom Zookeeper directory structure.
 // This function should return the path where you want the service's members to live.
 // Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/discovery`
-var BaseZnodePath = func(environment Environment, service string) string {
-	return BaseDirectory + "/" + string(environment) + "/" + service
+var BaseZnodePath = func(role, environment, service string) string {
+	return BaseDirectory + "/" + role + "/" + environment + "/" + service
 }
-
-// An Environment is the test/staging/production state of the service.
-type Environment string
-
-// Typically used environments
-const (
-	Local      Environment = "local"
-	Production Environment = "prod"
-	Test       Environment = "test"
-	Staging    Environment = "staging"
-)
 
 // DefaultZKTimeout is the zookeeper timeout used if it is not overwritten.
 var DefaultZKTimeout = 5 * time.Second
@@ -44,7 +33,8 @@ var DefaultZKTimeout = 5 * time.Second
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
 	ZKTimeout   time.Duration
-	environment Environment
+	role        string
+	environment string
 	service     string
 	zkServers   []string
 }
@@ -52,14 +42,14 @@ type ServerSet struct {
 // New creates a new ServerSet object that can then be watched
 // or have an endpoint added to. The service name must not contain
 // any slashes. Will panic if it does.
-func New(environment Environment, service string, zookeepers []string) *ServerSet {
+func New(role string, environment string, service string, zookeepers []string) *ServerSet {
 	if strings.Contains(service, "/") {
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
 
 	ss := &ServerSet{
-		ZKTimeout: DefaultZKTimeout,
-
+		ZKTimeout:   DefaultZKTimeout,
+		role:        role,
 		environment: environment,
 		service:     service,
 		zkServers:   zookeepers,
@@ -80,7 +70,7 @@ func (ss *ServerSet) connectToZookeeper() (*zk.Conn, <-chan zk.Event, error) {
 
 // directoryPath returns the base path of where all the ephemeral nodes will live.
 func (ss *ServerSet) directoryPath() string {
-	return BaseZnodePath(ss.environment, ss.service)
+	return BaseZnodePath(ss.role, ss.environment, ss.service)
 }
 
 func splitPaths(fullPath string) []string {
@@ -121,9 +111,10 @@ func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
 
 // structure of the data in each member znode
 // Mimics finagle serverset structure.
-type entity struct {
+type Entity struct {
 	ServiceEndpoint     endpoint            `json:"serviceEndpoint"`
-	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"` // unused
+	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"`
+	Shard 				int64 				`json:"shard"`
 	Status              string              `json:"status"`
 }
 
@@ -132,10 +123,12 @@ type endpoint struct {
 	Port int    `json:"port"`
 }
 
-func newEntity(host string, port int) *entity {
-	return &entity{
+func newEntity(host string, port int) *Entity {
+	return &Entity{
 		ServiceEndpoint:     endpoint{host, port},
 		AdditionalEndpoints: make(map[string]endpoint),
+		// TODO shard number
+		Shard:				 0,
 		Status:              statusAlive,
 	}
 }
