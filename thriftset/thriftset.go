@@ -5,10 +5,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/strava/go.serversets/internal/endpoints"
+	"github.com/thinker0/go.serversets/internal/endpoints"
 
 	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/strava/go.statsd"
+	"github.com/thinker0/go.statsd"
 )
 
 const (

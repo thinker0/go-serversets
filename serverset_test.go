@@ -9,7 +9,7 @@ const TestServer = "localhost"
 
 // This is the big run through a typical use case of add and remove and make sure it works.
 func TestServerSetAddAndRemove(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		panic(err)
@@ -115,18 +115,18 @@ func TestServerSetAddAndRemove(t *testing.T) {
 
 func TestBaseZnodePath(t *testing.T) {
 	// to verify nothing happens to the default
-	path := BaseZnodePath(Test, "gotest")
+	path := BaseZnodePath("test", "test", "gotest")
 	if path != "/discovery/test/gotest" {
 		t.Errorf("baseznodepath incorrect, got %v", path)
 	}
 }
 
 func TestServerSetDirectoryPath(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("test", "test", "gotest", []string{TestServer})
 	path := set.directoryPath()
 
 	// should just be a pass through to BaseZnodePath
-	if path != BaseZnodePath(Test, "gotest") {
+	if path != BaseZnodePath("test", "test", "gotest") {
 		t.Errorf("directory path incorrect, got %v", path)
 	}
 }
