@@ -109,6 +109,19 @@ func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
 	return nil
 }
 
+// checkExistsFullPath makes sure all the ZNodes
+func (ss *ServerSet) checkExistsFullPath(connection *zk.Conn) error {
+	paths := splitPaths(ss.directoryPath())
+
+	for _, key := range paths {
+		if exists, _, err := connection.Exists(key); !exists || err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // structure of the data in each member znode
 // Mimics finagle serverset structure.
 type Entity struct {

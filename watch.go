@@ -190,7 +190,7 @@ func (w *Watch) IsClosed() bool {
 
 // watch creates the actual Zookeeper watch.
 func (w *Watch) watch(connection *zk.Conn) ([]string, <-chan zk.Event, error) {
-	err := w.serverSet.createFullPath(connection)
+	err := w.serverSet.checkExistsFullPath(connection)
 	if err != nil {
 		return nil, nil, err
 	}
