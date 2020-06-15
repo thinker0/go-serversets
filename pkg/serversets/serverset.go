@@ -127,7 +127,7 @@ func (ss *ServerSet) checkExistsFullPath(connection *zk.Conn) error {
 type Entity struct {
 	ServiceEndpoint     endpoint            `json:"serviceEndpoint"`
 	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"`
-	Shard 				int64 				`json:"shard"`
+	Shard               int64               `json:"shard"`
 	Status              string              `json:"status"`
 }
 
@@ -140,7 +140,7 @@ func newEntity(host string, port int) *Entity {
 	return &Entity{
 		ServiceEndpoint:     endpoint{host, port},
 		AdditionalEndpoints: make(map[string]endpoint),
-		Shard:				 0,
+		Shard:               0,
 		Status:              statusAlive,
 	}
 }

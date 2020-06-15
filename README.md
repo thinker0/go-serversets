@@ -1,4 +1,4 @@
-go-serversets [![Build Status](https://travis-ci.org/strava/go-serversets.png?branch=master)](https://travis-ci.org/strava/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets)
+go-serversets [![Build Status](https://travis-ci.org/thinker0/go-serversets.png?branch=master)](https://travis-ci.org/thinker0/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets)
 =============
 
 Package **go-serversets** provides an simple interface for service discovery using [Apache Zookeeper](http://zookeeper.apache.org/).
@@ -7,10 +7,10 @@ Servers/endpoints register themselves and clients always have an updated host li
 This core package just provides a list of hostnames and ports. Sub-packages wrap
 the endpoint list for common use cases:
 
-* [mcset](/mcset) provides consistent hashing over a set of memcache hosts.
-* [httpset](/httpset) round-robins standard HTTP requests to the set of hosts.
-* [fixedset](/fixedset) severset watch without the zookeeper. Take advantage of
-* [thriftset](/thriftset) does "least request" load balancing around the given endpoints.
+* [mcset](/pkg/serversets/mcset) provides consistent hashing over a set of memcache hosts.
+* [httpset](/pkg/serversets/httpset) round-robins standard HTTP requests to the set of hosts.
+* [fixedset](/pkg/serversets/fixedset) severset watch without the zookeeper. Take advantage of
+* [thriftset](/pkg/serversets/thriftset) does "least request" load balancing around the given endpoints.
 
 This package is used internally at [Strava](http://strava.com) for
 [Finagle](https://twitter.github.io/finagle/) service discovery and memcache node registration.
@@ -96,5 +96,5 @@ Potential Improvements and Contributing
 ---------------------------------------
 This library simply provides a list of active endpoints. But it would nice if it did some
 load balancing, error checking, retries etc. Simple versions of this are available for
-[memcache](/mcset) and [http](/httpset) but they can be improved.
+[memcache](/pkg/serversets/mcset) and [http](/pkg/serversets/httpset) but they can be improved.
 So, if you have some ideas, submit a pull request.

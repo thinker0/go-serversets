@@ -1,4 +1,4 @@
-go-serversets/httpset [![Build Status](https://travis-ci.org/strava/go-serversets.png?branch=master)](https://travis-ci.org/strava/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/httpset)
+go-serversets/httpset [![Build Status](https://travis-ci.org/thinker0/go-serversets.png?branch=master)](https://travis-ci.org/thinker0/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/httpset)
 =====================
 
 Package **httpset** provides round-robin balancing over a set of endpoints 
