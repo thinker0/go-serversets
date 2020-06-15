@@ -1,8 +1,8 @@
-go.serversets/thriftset [![Build Status](https://travis-ci.org/strava/go.serversets.png?branch=master)](https://travis-ci.org/strava/go.serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go.serversets?status.png)](https://godoc.org/github.com/thinker0/go.serversets/thriftset)
+go-serversets/thriftset [![Build Status](https://travis-ci.org/strava/go-serversets.png?branch=master)](https://travis-ci.org/strava/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/thriftset)
 =====================
 
 Package **thriftset** provides "least active request" balancing over a set of endpoints
-provided by [go.serversets](/..). Connections are kept in a pool and reused as needed.
+provided by [go-serversets](/..). Connections are kept in a pool and reused as needed.
 
 Usage
 -----

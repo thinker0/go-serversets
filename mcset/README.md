@@ -1,8 +1,8 @@
-go.serversets/mcset [![Build Status](https://travis-ci.org/strava/go.serversets.png?branch=master)](https://travis-ci.org/strava/go.serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go.serversets?status.png)](https://godoc.org/github.com/thinker0/go.serversets/mcset)
+go-serversets/mcset [![Build Status](https://travis-ci.org/strava/go-serversets.png?branch=master)](https://travis-ci.org/strava/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/mcset)
 =====================
 
 Package **mcset** provides consistent sharding over a set of memcache nodes
-provided by [go.serversets](/..).
+provided by [go-serversets](/..).
 
 Consistent hashing is provided by [github.com/stathat/consistent](github.com/stathat/consistent)
 and the `MCSet` object fulfills the [ServerSelector interface](https://github.com/bradfitz/gomemcache/blob/master/memcache/selector.go#L30)
@@ -18,8 +18,8 @@ Client Usage
 		"log"
 
 		"github.com/bradfitz/gomemcache/memcache"
-		"github.com/thinker0/go.serversets"
-		"github.com/thinker0/go.serversets/mcset"
+		"github.com/thinker0/go-serversets"
+		"github.com/thinker0/go-serversets/mcset"
 	)
 
 	func main() {
@@ -50,7 +50,7 @@ Memcache node registration
 		"os"
 
 		"github.com/bradfitz/gomemcache/memcache"
-		"github.com/thinker0/go.serversets"
+		"github.com/thinker0/go-serversets"
 	)
 
 	func main() {
@@ -89,5 +89,5 @@ Memcache node registration
 
 Dependencies
 ------------
-* [github.com/thinker0/go.serversets](github.com/thinker0/go.serversets) to get the server list
+* [github.com/thinker0/go-serversets](github.com/thinker0/go-serversets) to get the server list
 * [github.com/stathat/consistent](github.com/stathat/consistent) for consistent hashing
