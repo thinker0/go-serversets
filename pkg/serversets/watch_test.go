@@ -6,7 +6,7 @@ import (
 )
 
 func TestWatchSortEndpoints(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("www", "test", "gotest", []string{TestServer})
 
 	watch, err := set.Watch()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestWatchSortEndpoints(t *testing.T) {
 }
 
 func TestWatchUpdateEndpoints(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("www", "test", "gotest", []string{TestServer})
 
 	watch, err := set.Watch()
 	if err != nil {
@@ -78,7 +78,7 @@ func TestWatchUpdateEndpoints(t *testing.T) {
 }
 
 func TestWatchIsClosed(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("www", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestWatchIsClosed(t *testing.T) {
 }
 
 func TestWatchMultipleClose(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("www", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestWatchMultipleClose(t *testing.T) {
 }
 
 func TestWatchTriggerEvent(t *testing.T) {
-	set := New(Test, "gotest", []string{TestServer})
+	set := New("www", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
 		t.Fatal(err)
