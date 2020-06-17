@@ -9,59 +9,35 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
-var (
-	// BaseDirectory is the Zookeeper namespace that all nodes made by this package will live.
-	// This path must begin with '/'
-	BaseDirectory = "/aurora"
-
-	// MemberPrefix is prefix for the Zookeeper sequential ephemeral nodes.
-	// member_ is used by Finagle server sets.
-	MemberPrefix = "member_"
-)
-
-// BaseZnodePath allows for a custom Zookeeper directory structure.
-// This function should return the path where you want the service's members to live.
-// Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/aurora`
-var BaseZnodePath = func(role, environment, service string) string {
-	return BaseDirectory + "/" + role + "/" + environment + "/" + service
-}
-
 // DefaultZKTimeout is the zookeeper timeout used if it is not overwritten.
 var DefaultZKTimeout = 5 * time.Second
 
 // A ServerSet represents a service with a set of servers that may change over time.
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
-	ZKTimeout        time.Duration
-	ZKRecordProvider ZKRecordProvider
-
-	role        string
-	environment string
-	service     string
-	zkServers   []string
+	ZKTimeout time.Duration
+	ZKFmt     ZKFmt
+	zkServers []string
 }
 
 // New creates a new ServerSet object that can then be watched
 // or have an endpoint added to. The service name must not contain
 // any slashes. Will panic if it does.
 func New(role string, environment string, service string, zookeepers []string) *ServerSet {
-	return NewP(role, environment, service, zookeepers, FinagleRecordProvider{})
-}
-
-//
-func NewP(role string, environment string, service string, zookeepers []string, zrp ZKRecordProvider) *ServerSet {
 	if strings.Contains(service, "/") {
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
 
-	ss := &ServerSet{
-		ZKTimeout:        DefaultZKTimeout,
-		ZKRecordProvider: zrp,
+	fmt := NewFinagleFmt(role, environment, service)
+	return NewP(zookeepers, fmt)
+}
 
-		role:        role,
-		environment: environment,
-		service:     service,
-		zkServers:   zookeepers,
+// NewP creates a new ServerSet with customized path/data formatter.
+func NewP(zookeepers []string, zkfmt ZKFmt) *ServerSet {
+	ss := &ServerSet{
+		ZKTimeout: DefaultZKTimeout,
+		ZKFmt:     zkfmt,
+		zkServers: zookeepers,
 	}
 
 	return ss
@@ -79,7 +55,7 @@ func (ss *ServerSet) connectToZookeeper() (*zk.Conn, <-chan zk.Event, error) {
 
 // directoryPath returns the base path of where all the ephemeral nodes will live.
 func (ss *ServerSet) directoryPath() string {
-	return BaseZnodePath(ss.role, ss.environment, ss.service)
+	return ss.ZKFmt.Path()
 }
 
 func splitPaths(fullPath string) []string {
@@ -105,14 +81,14 @@ func splitPaths(fullPath string) []string {
 
 // createFullPath makes sure all the znodes are created for the parent directories
 func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
-	full := ss.directoryPath()
-	paths := splitPaths(full)
+	path := ss.directoryPath()
+	paths := splitPaths(path)
 
 	// TODO: can't we just create all? ie. mkdir -p
 	for _, key := range paths {
 		_, err := connection.Create(key, nil, 0, zk.WorldACL(zk.PermAll))
 		if err != nil && err != zk.ErrNodeExists {
-			return fmt.Errorf("failed to create %s for node %s, %v", full, key, err)
+			return fmt.Errorf("failed to create %s for node %s, %v", path, key, err)
 		}
 	}
 

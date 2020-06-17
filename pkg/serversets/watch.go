@@ -196,7 +196,7 @@ func (w *Watch) updateRecords(connection *zk.Conn, keys []string) ([]ZKRecord, e
 	records := make([]ZKRecord, 0, len(keys))
 
 	for _, k := range keys {
-		if !strings.HasPrefix(k, MemberPrefix) {
+		if !strings.HasPrefix(k, w.serverSet.ZKFmt.Prefix()) {
 			continue
 		}
 
@@ -240,7 +240,7 @@ func (w *Watch) getRecord(connection *zk.Conn, key string) (ZKRecord, error) {
 		return w.getRecord(connection, key)
 	}
 
-	r, err := w.serverSet.ZKRecordProvider.Unmarshal(data)
+	r, err := w.serverSet.ZKFmt.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}

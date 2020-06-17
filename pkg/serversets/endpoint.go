@@ -139,7 +139,7 @@ func (ep *Endpoint) update(connection *zk.Conn) error {
 		return nil
 	}
 
-	entityData, _ := ep.ZKRecordProvider.Create(ep.host, ep.port).Marshal()
+	entityData, _ := ep.ZKFmt.Create(ep.host, ep.port).Marshal()
 
 	var err error
 	ep.key, err = ep.ServerSet.registerEndpoint(connection, entityData)
@@ -154,7 +154,7 @@ func (ss *ServerSet) registerEndpoint(connection *zk.Conn, data []byte) (string,
 	}
 
 	return connection.Create(
-		ss.directoryPath()+"/"+MemberPrefix,
+		ss.directoryPath()+"/"+ss.ZKFmt.Prefix(),
 		data,
 		zk.FlagEphemeral|zk.FlagSequence,
 		zk.WorldACL(zk.PermAll))

@@ -67,7 +67,7 @@ func TestWatchUpdateRecords(t *testing.T) {
 	}
 	defer conn.Close()
 
-	eps, err := watch.updateRecords(conn, []string{MemberPrefix + "random"})
+	eps, err := watch.updateRecords(conn, []string{set.ZKFmt.Prefix() + "random"})
 	if err != nil {
 		t.Fatalf("should not have error, got %v", err)
 	}
