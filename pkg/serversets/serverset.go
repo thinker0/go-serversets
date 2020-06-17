@@ -32,7 +32,9 @@ var DefaultZKTimeout = 5 * time.Second
 // A ServerSet represents a service with a set of servers that may change over time.
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
-	ZKTimeout   time.Duration
+	ZKTimeout        time.Duration
+	ZKRecordProvider ZKRecordProvider
+
 	role        string
 	environment string
 	service     string
@@ -43,12 +45,19 @@ type ServerSet struct {
 // or have an endpoint added to. The service name must not contain
 // any slashes. Will panic if it does.
 func New(role string, environment string, service string, zookeepers []string) *ServerSet {
+	return NewP(role, environment, service, zookeepers, FinagleRecordProvider{})
+}
+
+//
+func NewP(role string, environment string, service string, zookeepers []string, zrp ZKRecordProvider) *ServerSet {
 	if strings.Contains(service, "/") {
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
 
 	ss := &ServerSet{
-		ZKTimeout:   DefaultZKTimeout,
+		ZKTimeout:        DefaultZKTimeout,
+		ZKRecordProvider: zrp,
+
 		role:        role,
 		environment: environment,
 		service:     service,
@@ -121,37 +130,3 @@ func (ss *ServerSet) checkExistsFullPath(connection *zk.Conn) error {
 
 	return nil
 }
-
-// structure of the data in each member znode
-// Mimics finagle serverset structure.
-type Entity struct {
-	ServiceEndpoint     endpoint            `json:"serviceEndpoint"`
-	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"`
-	Shard               int64               `json:"shard"`
-	Status              string              `json:"status"`
-}
-
-type endpoint struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
-}
-
-func newEntity(host string, port int) *Entity {
-	return &Entity{
-		ServiceEndpoint:     endpoint{host, port},
-		AdditionalEndpoints: make(map[string]endpoint),
-		Shard:               0,
-		Status:              statusAlive,
-	}
-}
-
-// possible endpoint statuses. Currently only concerned with ALIVE.
-const (
-	statusDead     = "DEAD"
-	statusStarting = "STARTING"
-	statusAlive    = "ALIVE"
-	statusStopping = "STOPPING"
-	statusStopped  = "STOPPED"
-	statusWarning  = "WARNING"
-	statusUnknown  = "UNKNOWN"
-)

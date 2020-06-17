@@ -1,11 +1,8 @@
 package serversets
 
 import (
-	"encoding/json"
 	"log"
-	"net"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,13 +28,11 @@ type Watch struct {
 	done chan struct{} // used for closing
 	wg   sync.WaitGroup
 
-	// lock for read/writing the endpoints slice
-	lock      sync.RWMutex
-	endpoints []Entity
+	// lock for read/writing the records slice
+	lock    sync.RWMutex
+	records []ZKRecord
 }
 
-// Watch creates a new watch on this server set. Changes to the set will
-// update watch.Endpoints() and an event will be sent to watch.Event right after that happens.
 func (ss *ServerSet) Watch() (*Watch, error) {
 	watch := &Watch{
 		serverSet: ss,
@@ -55,7 +50,7 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 		return nil, err
 	}
 
-	watch.endpoints, err = watch.updateEndpoints(connection, keys)
+	watch.records, err = watch.updateRecords(connection, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +80,7 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 					continue
 				}
 
-				watch.endpoints, err = watch.updateEndpoints(connection, keys)
+				watch.records, err = watch.updateRecords(connection, keys)
 				if err != nil {
 					time.Sleep(1 * time.Second)
 					log.Printf("unable to update endpoint list after session expired: %v", err)
@@ -108,7 +103,7 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 					break
 				}
 
-				endpoints, err := watch.updateEndpoints(connection, keys)
+				records, err := watch.updateRecords(connection, keys)
 				if err != nil {
 					log.Printf("unable to updated endpoint list after znode event: %v", err)
 					watchEvents = nil
@@ -116,7 +111,7 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 				}
 
 				watch.lock.Lock()
-				watch.endpoints = endpoints
+				watch.records = records
 				watch.lock.Unlock()
 
 				watch.triggerEvent()
@@ -135,21 +130,13 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 func (w *Watch) Endpoints() []string {
 	w.lock.RLock()
 	defer w.lock.RUnlock()
-	endpoints := make([]string, 0, len(w.endpoints))
-	for _, e := range w.endpoints {
-		endpoints = append(endpoints, net.JoinHostPort(e.ServiceEndpoint.Host, strconv.Itoa(e.ServiceEndpoint.Port)))
+	endpoints := make([]string, 0, len(w.records))
+	for _, r := range w.records {
+		endpoints = append(endpoints, r.Endpoint())
 	}
 
 	sort.Strings(endpoints)
 	return endpoints
-}
-
-// EndpointEntities returns a slice of the current list of Entites associated with this watch, collected at the last event.
-func (w *Watch) EndpointEntities() []Entity {
-	w.lock.RLock()
-	defer w.lock.RUnlock()
-
-	return w.endpoints
 }
 
 // Event returns the event channel. This channel will get an object
@@ -199,34 +186,34 @@ func (w *Watch) watch(connection *zk.Conn) ([]string, <-chan zk.Event, error) {
 	return children, events, err
 }
 
-func (w *Watch) updateEndpoints(connection *zk.Conn, keys []string) ([]Entity, error) {
-	endpoints := make([]Entity, 0, len(keys))
+func (w *Watch) updateRecords(connection *zk.Conn, keys []string) ([]ZKRecord, error) {
+	records := make([]ZKRecord, 0, len(keys))
 
 	for _, k := range keys {
 		if !strings.HasPrefix(k, MemberPrefix) {
 			continue
 		}
 
-		e, err := w.getEndpoint(connection, k)
+		r, err := w.getRecord(connection, k)
 		if err != nil {
 			return nil, err
 		}
 
-		if e == nil {
+		if r == nil {
 			// znode not found
 			continue
 		}
 
-		if e.Status == statusAlive {
-			endpoints = append(endpoints, *e)
+		if r.IsAlive() {
+			records = append(records, r)
 		}
 	}
 
-	return endpoints, nil
+	return records, nil
 
 }
 
-func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*Entity, error) {
+func (w *Watch) getRecord(connection *zk.Conn, key string) (ZKRecord, error) {
 
 	data, _, err := connection.Get(w.serverSet.directoryPath() + "/" + key)
 	if err == zk.ErrNoNode {
@@ -244,16 +231,15 @@ func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*Entity, error) {
 	// FIXME handle very rare cases where Get returns the
 	// SOH control character instead of the actual value
 	if string(data) == SOH {
-		return w.getEndpoint(connection, key)
+		return w.getRecord(connection, key)
 	}
 
-	e := &Entity{}
-	err = json.Unmarshal(data, &e)
+	r, err := w.serverSet.ZKRecordProvider.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return e, err
+	return r, err
 }
 
 // triggerEvent will queue up something in the Event channel if there isn't already something there.

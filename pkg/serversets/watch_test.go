@@ -45,7 +45,7 @@ func TestWatchSortEndpoints(t *testing.T) {
 	}
 }
 
-func TestWatchUpdateEndpoints(t *testing.T) {
+func TestWatchUpdateRecords(t *testing.T) {
 	set := New("www", "test", "gotest", []string{TestServer})
 
 	watch, err := set.Watch()
@@ -67,7 +67,7 @@ func TestWatchUpdateEndpoints(t *testing.T) {
 	}
 	defer conn.Close()
 
-	eps, err := watch.updateEndpoints(conn, []string{MemberPrefix + "random"})
+	eps, err := watch.updateRecords(conn, []string{MemberPrefix + "random"})
 	if err != nil {
 		t.Fatalf("should not have error, got %v", err)
 	}

@@ -1,7 +1,6 @@
 package serversets
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -140,7 +139,7 @@ func (ep *Endpoint) update(connection *zk.Conn) error {
 		return nil
 	}
 
-	entityData, _ := json.Marshal(newEntity(ep.host, ep.port))
+	entityData, _ := ep.ZKRecordProvider.Create(ep.host, ep.port).Marshal()
 
 	var err error
 	ep.key, err = ep.ServerSet.registerEndpoint(connection, entityData)
