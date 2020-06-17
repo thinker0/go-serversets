@@ -1,6 +1,8 @@
 package serversets
 
 import (
+	"encoding/json"
+	"fmt"
 	"sort"
 	"testing"
 )
@@ -115,4 +117,61 @@ func TestWatchTriggerEvent(t *testing.T) {
 	watch.triggerEvent()
 	watch.triggerEvent()
 	watch.triggerEvent()
+}
+
+type testNode struct {
+	Address string `json:"address"`
+	Name    string `json:"name"`
+	ID      string `json:"id"`
+	Port    *int   `json:"port"`
+	Enabled bool   `json:"enabled"`
+	SSLPort *int   `json:"sslPort"`
+}
+
+type testFmt struct{}
+
+func (testFmt) Unmarshal(data []byte) (ZKRecord, error) {
+	n := &testNode{}
+	err := json.Unmarshal(data, n)
+	return n, err
+}
+
+func (testFmt) Create(host string, port int) ZKRecord {
+	return &testNode{
+		Address: host,
+		Name:    "test",
+		ID:      "id",
+		Port:    nil,
+		Enabled: true,
+		SSLPort: &port,
+	}
+}
+
+func (testFmt) Path() string   { return "/services/foobar" }
+func (testFmt) Prefix() string { return "" }
+
+func (n testNode) Endpoint() string         { return fmt.Sprintf("%s:%d", n.Address, *n.SSLPort) }
+func (n testNode) Marshal() ([]byte, error) { return json.Marshal(n) }
+func (n testNode) IsAlive() bool            { return n.Enabled }
+
+func TestCustomizedZKFmt(t *testing.T) {
+	set := NewP([]string{TestServer}, testFmt{})
+	watch, err := set.Watch()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watch.Close()
+	ep, err := set.RegisterEndpoint("localhost", 1002, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ep.Close()
+	<-watch.Event()
+	expected := "localhost:1002"
+	discovered := watch.Endpoints()
+	if len(discovered) != 1 {
+		t.Fatalf("expected to discover one endpoint, got %v", discovered)
+	} else if expected != discovered[0] {
+		t.Fatalf("expected to discover %s, got %s", expected, discovered[0])
+	}
 }

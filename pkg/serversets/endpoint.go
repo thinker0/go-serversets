@@ -139,9 +139,11 @@ func (ep *Endpoint) update(connection *zk.Conn) error {
 		return nil
 	}
 
-	entityData, _ := ep.ZKFmt.Create(ep.host, ep.port).Marshal()
+	entityData, err := ep.ZKFmt.Create(ep.host, ep.port).Marshal()
+	if err != nil {
+		return fmt.Errorf("failed to marshal zk node for %s:%d, %v", ep.host, ep.port, err)
+	}
 
-	var err error
 	ep.key, err = ep.ServerSet.registerEndpoint(connection, entityData)
 
 	return err
