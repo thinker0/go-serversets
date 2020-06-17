@@ -45,6 +45,12 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 		return nil, err
 	}
 
+	// Ensure path exists before watching
+	err = ss.createFullPath(connection)
+	if err != nil {
+		return nil, err
+	}
+
 	keys, watchEvents, err := watch.watch(connection)
 	if err != nil {
 		return nil, err

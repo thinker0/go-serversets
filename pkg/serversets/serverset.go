@@ -21,7 +21,7 @@ var (
 
 // BaseZnodePath allows for a custom Zookeeper directory structure.
 // This function should return the path where you want the service's members to live.
-// Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/discovery`
+// Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/aurora`
 var BaseZnodePath = func(role, environment, service string) string {
 	return BaseDirectory + "/" + role + "/" + environment + "/" + service
 }
@@ -105,13 +105,14 @@ func splitPaths(fullPath string) []string {
 
 // createFullPath makes sure all the znodes are created for the parent directories
 func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
-	paths := splitPaths(ss.directoryPath())
+	full := ss.directoryPath()
+	paths := splitPaths(full)
 
 	// TODO: can't we just create all? ie. mkdir -p
 	for _, key := range paths {
 		_, err := connection.Create(key, nil, 0, zk.WorldACL(zk.PermAll))
 		if err != nil && err != zk.ErrNodeExists {
-			return err
+			return fmt.Errorf("failed to create %s for node %s, %v", full, key, err)
 		}
 	}
 
@@ -123,8 +124,12 @@ func (ss *ServerSet) checkExistsFullPath(connection *zk.Conn) error {
 	paths := splitPaths(ss.directoryPath())
 
 	for _, key := range paths {
-		if exists, _, err := connection.Exists(key); !exists || err != nil {
-			return err
+		exists, _, err := connection.Exists(key)
+		if !exists {
+			return fmt.Errorf("zk node %s does not exist", key)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to check zk node %s existence, %v", key, err)
 		}
 	}
 
