@@ -33,6 +33,8 @@ type Watch struct {
 	records []ZKRecord
 }
 
+// Watch starts a zookeeper connection and starts watching changes
+// in the service members znode.
 func (ss *ServerSet) Watch() (*Watch, error) {
 	watch := &Watch{
 		serverSet: ss,
