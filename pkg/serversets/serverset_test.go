@@ -116,7 +116,7 @@ func TestServerSetAddAndRemove(t *testing.T) {
 func TestBaseZnodePath(t *testing.T) {
 	// to verify nothing happens to the default
 	path := BaseZnodePath("test", "test", "gotest")
-	if path != "/discovery/test/gotest" {
+	if path != "/aurora/test/test/gotest" {
 		t.Errorf("baseznodepath incorrect, got %v", path)
 	}
 }
