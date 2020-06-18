@@ -1,4 +1,4 @@
-module github.com/zmstone/go-serversets/v1
+module github.com/zmstone/go-serversets
 
 go 1.13
 

@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/zmstone/go-serversets/v1/internal/endpoints"
+	"github.com/zmstone/go-serversets/internal/endpoints"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )

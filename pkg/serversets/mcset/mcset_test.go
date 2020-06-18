@@ -3,7 +3,7 @@ package mcset
 import (
 	"net"
 
-	"github.com/zmstone/go-serversets/v1/pkg/serversets/fixedset"
+	"github.com/zmstone/go-serversets/pkg/serversets/fixedset"
 
 	"testing"
 )
