@@ -1,4 +1,4 @@
-go-serversets/thriftset [![Build Status](https://travis-ci.org/thinker0/go-serversets.png?branch=master)](https://travis-ci.org/thinker0/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/thriftset)
+go-serversets/thriftset [![Build Status](https://travis-ci.org/zmstone/go-serversets.png?branch=master)](https://travis-ci.org/zmstone/go-serversets) [![Godoc Reference](https://godoc.org/github.com/zmstone/go-serversets?status.png)](https://godoc.org/github.com/zmstone/go-serversets/thriftset)
 =====================
 
 Package **thriftset** provides "least active request" balancing over a set of endpoints

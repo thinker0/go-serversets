@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thinker0/go-serversets/v1/internal/endpoints"
-	"github.com/thinker0/go-serversets/v1/pkg/serversets/fixedset"
+	"github.com/zmstone/go-serversets/v1/internal/endpoints"
+	"github.com/zmstone/go-serversets/v1/pkg/serversets/fixedset"
 
 	"github.com/apache/thrift/lib/go/thrift"
 )

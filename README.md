@@ -1,4 +1,4 @@
-go-serversets [![Build Status](https://travis-ci.org/thinker0/go-serversets.png?branch=master)](https://travis-ci.org/thinker0/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets)
+go-serversets [![Build Status](https://travis-ci.org/zmstone/go-serversets.png?branch=master)](https://travis-ci.org/zmstone/go-serversets) [![Godoc Reference](https://godoc.org/github.com/zmstone/go-serversets?status.png)](https://godoc.org/github.com/zmstone/go-serversets)
 =============
 
 Package **go-serversets** provides an simple interface for service discovery using [Apache Zookeeper](http://zookeeper.apache.org/).
@@ -90,7 +90,7 @@ Tests
 Tests require a Zookeeper server. The default is "localhost" but a different
 host can be used by changing the `TestServer` variable in [serverset_test.go](serverset_test.go)
 
-	go test github.com/thinker0/go-serversets/...
+	go test github.com/zmstone/go-serversets/...
 
 Potential Improvements and Contributing
 ---------------------------------------

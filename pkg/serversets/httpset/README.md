@@ -1,4 +1,4 @@
-go-serversets/httpset [![Build Status](https://travis-ci.org/thinker0/go-serversets.png?branch=master)](https://travis-ci.org/thinker0/go-serversets) [![Godoc Reference](https://godoc.org/github.com/thinker0/go-serversets?status.png)](https://godoc.org/github.com/thinker0/go-serversets/httpset)
+go-serversets/httpset [![Build Status](https://travis-ci.org/zmstone/go-serversets.png?branch=master)](https://travis-ci.org/zmstone/go-serversets) [![Godoc Reference](https://godoc.org/github.com/zmstone/go-serversets?status.png)](https://godoc.org/github.com/zmstone/go-serversets/httpset)
 =====================
 
 Package **httpset** provides round-robin balancing over a set of endpoints 
@@ -13,8 +13,8 @@ Usage
 	import (
 		"log"
 
-		"github.com/thinker0/go-serversets"
-		"github.com/thinker0/go-serversets/httpset"
+		"github.com/zmstone/go-serversets"
+		"github.com/zmstone/go-serversets/httpset"
 	)
 
 	func main() {
@@ -37,7 +37,7 @@ Usage
 
 Dependencies
 ------------
-* [github.com/thinker0/go-serversets](github.com/thinker0/go-serversets) to get the server list.
+* [github.com/zmstone/go-serversets](github.com/zmstone/go-serversets) to get the server list.
 However, one can use a predefined set of servers by doing something like:
 
 		t := httpset.NewTransport(nil)
