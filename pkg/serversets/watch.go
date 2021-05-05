@@ -52,11 +52,13 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 
 	keys, watchEvents, err := watch.watch(connection)
 	if err != nil {
+		defer connection.Close()
 		return nil, err
 	}
 
 	watch.endpoints, err = watch.updateEndpoints(connection, keys)
 	if err != nil {
+		defer connection.Close()
 		return nil, err
 	}
 
