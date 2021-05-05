@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samuel/go-zookeeper/zk"
+	"github.com/go-zookeeper/zk"
 )
 
 // An Endpoint is a service (host and port) registered on Zookeeper
