@@ -3,7 +3,7 @@ package mcset
 import (
 	"net"
 
-	"github.com/thinker0/go-serversets/v1/pkg/serversets/fixedset"
+	"github.com/thinker0/go-serversets/pkg/serversets/fixedset"
 
 	"testing"
 )
