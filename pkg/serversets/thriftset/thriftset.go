@@ -146,7 +146,7 @@ func (ts *ThriftSet) OpenConn(hostPort string) (io.Closer, error) {
 
 // to allow stubbing for tests
 var socketBuilder = func(hostPort string, timeout time.Duration) (*thrift.TSocket, error) {
-	return thrift.NewTSocketTimeout(hostPort, timeout)
+	return thrift.NewTSocketTimeout(hostPort, timeout, timeout)
 }
 
 // IdleTimeout returns the timeout for connections to live in the idle pool.
