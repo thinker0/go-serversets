@@ -18,6 +18,9 @@ type ServerSet struct {
 	ZKTimeout         time.Duration
 	ZKFmt             ZKFmt
 	CreatePathOnWatch bool // if true, Watch() will ensure the parent znode path exists; default is false (read-only)
+	ACL               []zk.ACL   // Base ACL for creating znode paths (defaults to zk.WorldACL(zk.PermAll))
+	MemberACL         []zk.ACL   // ACL for ephemeral member znodes (defaults to ACL)
+	Auth              []AuthInfo // Authentication credentials added on connect/reconnect
 	zkServers         []string
 }
 
@@ -65,7 +68,25 @@ func (ss *ServerSet) ZookeeperServers() []string {
 }
 
 func (ss *ServerSet) connectToZookeeper() (*zk.Conn, <-chan zk.Event, error) {
-	return zk.Connect(ss.zkServers, ss.ZKTimeout)
+	timeout := ss.ZKTimeout
+	if timeout <= 0 {
+		timeout = DefaultZKTimeout
+	}
+
+	conn, sessionEvents, err := zk.Connect(ss.zkServers, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, auth := range ss.Auth {
+		payloadCopy := append([]byte(nil), auth.Payload...)
+		if err := conn.AddAuth(auth.Scheme, payloadCopy); err != nil {
+			conn.Close()
+			return nil, nil, fmt.Errorf("failed to add auth for scheme %s: %w", auth.Scheme, err)
+		}
+	}
+
+	return conn, sessionEvents, nil
 }
 
 // directoryPath returns the base path of where all the ephemeral nodes will live.
@@ -100,7 +121,7 @@ func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
 	paths := splitPaths(fullPath)
 
 	for _, key := range paths {
-		_, err := connection.Create(key, nil, 0, zk.WorldACL(zk.PermAll))
+		_, err := connection.Create(key, nil, 0, ss.getACL())
 		if err != nil && err != zk.ErrNodeExists {
 			return fmt.Errorf("failed to create path %s for node %s: %w", fullPath, key, err)
 		}

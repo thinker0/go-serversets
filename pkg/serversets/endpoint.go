@@ -180,5 +180,5 @@ func (ss *ServerSet) registerEndpoint(connection *zk.Conn, data []byte) (string,
 		ss.directoryPath()+"/"+ss.ZKFmt.Prefix(),
 		data,
 		zk.FlagEphemeral|zk.FlagSequence,
-		zk.WorldACL(zk.PermAll))
+		ss.getMemberACL())
 }
