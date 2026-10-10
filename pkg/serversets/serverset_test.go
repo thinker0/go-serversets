@@ -151,3 +151,27 @@ func TestSplitPaths(t *testing.T) {
 		t.Errorf("split not correct, got %v", parts)
 	}
 }
+
+func TestValidatePathElement(t *testing.T) {
+	assertPanic := func(fn func(), desc string) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("expected panic for %s, but did not panic", desc)
+			}
+		}()
+		fn()
+	}
+
+	assertPanic(func() { New("role/slash", "env", "svc", []string{"localhost"}) }, "role with slash")
+	assertPanic(func() { New("role", "env/slash", "svc", []string{"localhost"}) }, "env with slash")
+	assertPanic(func() { New("role", "env", "svc/slash", []string{"localhost"}) }, "service with slash")
+	assertPanic(func() { New("..", "env", "svc", []string{"localhost"}) }, "role with traversal")
+	assertPanic(func() { New("role", "../env", "svc", []string{"localhost"}) }, "env with traversal")
+	assertPanic(func() { New("role", "env", "svc/..", []string{"localhost"}) }, "service with traversal")
+
+	// Valid should not panic
+	s := New("validrole", "validenv", "validsvc", []string{"localhost"})
+	if s == nil {
+		t.Fatal("expected non-nil serverset")
+	}
+}

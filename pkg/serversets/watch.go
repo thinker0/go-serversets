@@ -1,6 +1,7 @@
 package serversets
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -240,27 +241,32 @@ func (w *Watch) updateRecords(connection *zk.Conn, keys []string) ([]ZKRecord, e
 }
 
 func (w *Watch) getRecord(connection *zk.Conn, key string) (ZKRecord, error) {
-	data, _, err := connection.Get(w.serverSet.directoryPath() + "/" + key)
-	if err == zk.ErrNoNode {
-		return nil, nil
+	nodePath := w.serverSet.directoryPath() + "/" + key
+	const maxSOHRetries = 3
+
+	for attempt := 0; attempt < maxSOHRetries; attempt++ {
+		data, _, err := connection.Get(nodePath)
+		if err == zk.ErrNoNode {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// Handle rare cases where Get returns the SOH control character
+		if string(data) == SOH {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+
+		r, err := w.serverSet.ZKFmt.Unmarshal(data)
+		if err != nil {
+			return nil, err
+		}
+		return r, nil
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	// FIXME handle very rare cases where Get returns the
-	// SOH control character instead of the actual value
-	if string(data) == SOH {
-		return w.getRecord(connection, key)
-	}
-
-	r, err := w.serverSet.ZKFmt.Unmarshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
+	return nil, fmt.Errorf("zk get for %s returned SOH across %d retries", nodePath, maxSOHRetries)
 }
 
 // triggerEvent will queue up something in the Event channel if there isn't already something there.

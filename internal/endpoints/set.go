@@ -101,7 +101,9 @@ func (s *Set) GetConn() (*Conn, error) {
 // SetEndpoints will do a smart update of the endpoint lists. New hosts
 // will be added, old ones will be removed.
 func (s *Set) SetEndpoints(hosts []string) (added, removed int) {
-	shuffleHosts(hosts)
+	hostsCopy := make([]string, len(hosts))
+	copy(hostsCopy, hosts)
+	shuffleHosts(hostsCopy)
 	s.lock.Lock()
 
 	// Remove hosts that are currently in the endpoints list, but shouldn't be.
@@ -110,7 +112,7 @@ func (s *Set) SetEndpoints(hosts []string) (added, removed int) {
 	for i := len(s.list) - 1; i >= 0; i-- {
 		ep := s.list[i]
 		found := false
-		for _, host := range hosts {
+		for _, host := range hostsCopy {
 			if ep.Host() == host {
 				found = true
 				break
@@ -126,7 +128,7 @@ func (s *Set) SetEndpoints(hosts []string) (added, removed int) {
 	}
 
 	// Add in hosts that are not currently in the endpoints list.
-	for _, host := range hosts {
+	for _, host := range hostsCopy {
 		found := false
 		for _, ep := range s.list {
 			if ep.Host() == host {

@@ -2,6 +2,7 @@ package serversets
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -63,23 +64,40 @@ func (ss *ServerSet) RegisterEndpoint(host string, port int, ping func() error) 
 			select {
 			case event := <-sessionEvents:
 				if event.Type == zk.EventSession && event.State == zk.StateExpired {
-					connection.Close()
-					connection = nil
+					if connection != nil {
+						connection.Close()
+						connection = nil
+					}
 				}
 			case <-endpoint.done:
-				connection.Close()
+				if connection != nil {
+					connection.Close()
+				}
 				return
 			}
 
-			if connection == nil {
+			for connection == nil {
+				select {
+				case <-endpoint.done:
+					return
+				default:
+				}
+
 				connection, sessionEvents, err = ss.connectToZookeeper()
 				if err != nil {
-					panic(fmt.Errorf("unable to reconnect to zookeeper after session expired: %v", err))
+					log.Printf("unable to reconnect to zookeeper after session expired: %v", err)
+					connection = nil
+					time.Sleep(1 * time.Second)
+					continue
 				}
 
 				err = endpoint.update(connection)
 				if err != nil {
-					panic(fmt.Errorf("unable to reregister endpoint after session expired: %v", err))
+					log.Printf("unable to reregister endpoint after session expired: %v", err)
+					connection.Close()
+					connection = nil
+					time.Sleep(1 * time.Second)
+					continue
 				}
 			}
 		}
@@ -89,9 +107,12 @@ func (ss *ServerSet) RegisterEndpoint(host string, port int, ping func() error) 
 		endpoint.wg.Add(1)
 		go func() {
 			defer endpoint.wg.Done()
+			ticker := time.NewTicker(endpoint.PingRate)
+			defer ticker.Stop()
+
 			for {
 				select {
-				case <-time.After(endpoint.PingRate):
+				case <-ticker.C:
 				case <-endpoint.done:
 					return
 				}
@@ -99,10 +120,11 @@ func (ss *ServerSet) RegisterEndpoint(host string, port int, ping func() error) 
 				alive := endpoint.ping() == nil
 				if alive != endpoint.alive {
 					endpoint.alive = alive
-					err := endpoint.update(connection)
-
-					if err != nil {
-						panic(fmt.Errorf("unable to reregister after ping change: %v", err))
+					if connection != nil {
+						err := endpoint.update(connection)
+						if err != nil {
+							log.Printf("unable to update endpoint status after ping change: %v", err)
+						}
 					}
 				}
 			}

@@ -20,13 +20,22 @@ type ServerSet struct {
 	zkServers []string
 }
 
-// New creates a new ServerSet object that can then be watched
-// or have an endpoint added to. The service name must not contain
-// any slashes. Will panic if it does.
-func New(role string, environment string, service string, zookeepers []string) *ServerSet {
-	if strings.Contains(service, "/") {
-		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
+func validatePathElement(name, value string) {
+	if strings.Contains(value, "/") {
+		panic(fmt.Errorf("%s (%s) must not contain slashes", name, value))
 	}
+	if value == ".." || strings.Contains(value, "../") || strings.Contains(value, "/..") {
+		panic(fmt.Errorf("%s (%s) must not contain directory traversal elements", name, value))
+	}
+}
+
+// New creates a new ServerSet object that can then be watched
+// or have an endpoint added to. The role, environment, and service names must not contain
+// slashes or directory traversal elements. Will panic if they do.
+func New(role string, environment string, service string, zookeepers []string) *ServerSet {
+	validatePathElement("role", role)
+	validatePathElement("environment", environment)
+	validatePathElement("service", service)
 
 	formatter := NewFinagleFmt(role, environment, service)
 	return NewWithFormatter(zookeepers, formatter)
