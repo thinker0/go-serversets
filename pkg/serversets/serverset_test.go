@@ -175,3 +175,15 @@ func TestValidatePathElement(t *testing.T) {
 		t.Fatal("expected non-nil serverset")
 	}
 }
+
+func TestCreatePathOnWatchDefault(t *testing.T) {
+	s := New("role", "env", "svc", []string{"localhost"})
+	if s.CreatePathOnWatch != false {
+		t.Errorf("expected CreatePathOnWatch to be false by default, got %v", s.CreatePathOnWatch)
+	}
+
+	custom := NewWithFormatter([]string{"localhost"}, NewFinagleFmt("r", "e", "s"))
+	if custom.CreatePathOnWatch != false {
+		t.Errorf("expected CreatePathOnWatch to be false by default on NewWithFormatter, got %v", custom.CreatePathOnWatch)
+	}
+}

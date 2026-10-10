@@ -48,11 +48,14 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 		return nil, err
 	}
 
-	// Ensure path exists before watching
-	err = ss.createFullPath(connection)
-	if err != nil {
-		connection.Close()
-		return nil, err
+	// Only create parent path if explicitly requested.
+	// Default is read-only to avoid side-effects (e.g. creating typo paths or failing on read-only ACLs).
+	if ss.CreatePathOnWatch {
+		err = ss.createFullPath(connection)
+		if err != nil {
+			connection.Close()
+			return nil, err
+		}
 	}
 
 	keys, watchEvents, err := watch.watch(connection)

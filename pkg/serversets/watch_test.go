@@ -151,6 +151,7 @@ func (n testNode) IsAlive() bool            { return n.Enabled }
 func TestCustomizedZKFmt(t *testing.T) {
 	requireZK(t)
 	set := NewP([]string{TestServer}, testFmt{})
+	set.CreatePathOnWatch = true
 	watch, err := set.Watch()
 	if err != nil {
 		t.Fatal(err)

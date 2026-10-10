@@ -15,9 +15,10 @@ var DefaultZKTimeout = 5 * time.Second
 // A ServerSet represents a service with a set of servers that may change over time.
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
-	ZKTimeout time.Duration
-	ZKFmt     ZKFmt
-	zkServers []string
+	ZKTimeout         time.Duration
+	ZKFmt             ZKFmt
+	CreatePathOnWatch bool // if true, Watch() will ensure the parent znode path exists; default is false (read-only)
+	zkServers         []string
 }
 
 func validatePathElement(name, value string) {
