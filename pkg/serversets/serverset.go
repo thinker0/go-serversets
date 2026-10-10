@@ -9,34 +9,15 @@ import (
 	"github.com/go-zookeeper/zk"
 )
 
-var (
-	// BaseDirectory is the Zookeeper namespace that all nodes made by this package will live.
-	// This path must begin with '/'
-	BaseDirectory = "/aurora"
-
-	// MemberPrefix is prefix for the Zookeeper sequential ephemeral nodes.
-	// member_ is used by Finagle server sets.
-	MemberPrefix = "member_"
-)
-
-// BaseZnodePath allows for a custom Zookeeper directory structure.
-// This function should return the path where you want the service's members to live.
-// Default is `BaseDirectory + "/" + environment + "/" + service` where the default base directory is `/discovery`
-var BaseZnodePath = func(role, environment, service string) string {
-	return BaseDirectory + "/" + role + "/" + environment + "/" + service
-}
-
 // DefaultZKTimeout is the zookeeper timeout used if it is not overwritten.
 var DefaultZKTimeout = 5 * time.Second
 
 // A ServerSet represents a service with a set of servers that may change over time.
 // The master lists of servers is kept as ephemeral nodes in Zookeeper.
 type ServerSet struct {
-	ZKTimeout   time.Duration
-	role        string
-	environment string
-	service     string
-	zkServers   []string
+	ZKTimeout time.Duration
+	ZKFmt     ZKFmt
+	zkServers []string
 }
 
 // New creates a new ServerSet object that can then be watched
@@ -47,15 +28,24 @@ func New(role string, environment string, service string, zookeepers []string) *
 		panic(fmt.Errorf("service name (%s) must not contain slashes", service))
 	}
 
+	formatter := NewFinagleFmt(role, environment, service)
+	return NewWithFormatter(zookeepers, formatter)
+}
+
+// NewWithFormatter creates a new ServerSet with a customized path and data formatter.
+func NewWithFormatter(zookeepers []string, zkfmt ZKFmt) *ServerSet {
 	ss := &ServerSet{
-		ZKTimeout:   DefaultZKTimeout,
-		role:        role,
-		environment: environment,
-		service:     service,
-		zkServers:   zookeepers,
+		ZKTimeout: DefaultZKTimeout,
+		ZKFmt:     zkfmt,
+		zkServers: zookeepers,
 	}
 
 	return ss
+}
+
+// NewP is an alias for NewWithFormatter.
+func NewP(zookeepers []string, zkfmt ZKFmt) *ServerSet {
+	return NewWithFormatter(zookeepers, zkfmt)
 }
 
 // ZookeeperServers returns the Zookeeper servers this set is using.
@@ -70,7 +60,7 @@ func (ss *ServerSet) connectToZookeeper() (*zk.Conn, <-chan zk.Event, error) {
 
 // directoryPath returns the base path of where all the ephemeral nodes will live.
 func (ss *ServerSet) directoryPath() string {
-	return BaseZnodePath(ss.role, ss.environment, ss.service)
+	return ss.ZKFmt.Path()
 }
 
 func splitPaths(fullPath string) []string {
@@ -96,62 +86,32 @@ func splitPaths(fullPath string) []string {
 
 // createFullPath makes sure all the znodes are created for the parent directories
 func (ss *ServerSet) createFullPath(connection *zk.Conn) error {
-	paths := splitPaths(ss.directoryPath())
+	fullPath := ss.directoryPath()
+	paths := splitPaths(fullPath)
 
-	// TODO: can't we just create all? ie. mkdir -p
 	for _, key := range paths {
 		_, err := connection.Create(key, nil, 0, zk.WorldACL(zk.PermAll))
 		if err != nil && err != zk.ErrNodeExists {
-			return err
+			return fmt.Errorf("failed to create path %s for node %s: %w", fullPath, key, err)
 		}
 	}
 
 	return nil
 }
 
-// checkExistsFullPath makes sure all the ZNodes
+// checkExistsFullPath makes sure all the ZNodes exist
 func (ss *ServerSet) checkExistsFullPath(connection *zk.Conn) error {
 	paths := splitPaths(ss.directoryPath())
 
 	for _, key := range paths {
-		if exists, _, err := connection.Exists(key); !exists || err != nil {
-			return err
+		exists, _, err := connection.Exists(key)
+		if err != nil {
+			return fmt.Errorf("failed to check zk node %s existence: %w", key, err)
+		}
+		if !exists {
+			return fmt.Errorf("zk node %s does not exist", key)
 		}
 	}
 
 	return nil
 }
-
-// structure of the data in each member znode
-// Mimics finagle serverset structure.
-type Entity struct {
-	ServiceEndpoint     endpoint            `json:"serviceEndpoint"`
-	AdditionalEndpoints map[string]endpoint `json:"additionalEndpoints"`
-	Shard               int64               `json:"shard"`
-	Status              string              `json:"status"`
-}
-
-type endpoint struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
-}
-
-func newEntity(host string, port int) *Entity {
-	return &Entity{
-		ServiceEndpoint:     endpoint{host, port},
-		AdditionalEndpoints: make(map[string]endpoint),
-		Shard:               0,
-		Status:              statusAlive,
-	}
-}
-
-// possible endpoint statuses. Currently only concerned with ALIVE.
-const (
-	statusDead     = "DEAD"
-	statusStarting = "STARTING"
-	statusAlive    = "ALIVE"
-	statusStopping = "STOPPING"
-	statusStopped  = "STOPPED"
-	statusWarning  = "WARNING"
-	statusUnknown  = "UNKNOWN"
-)

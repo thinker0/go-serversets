@@ -1,7 +1,6 @@
 package serversets
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -52,6 +51,7 @@ func (ss *ServerSet) RegisterEndpoint(host string, port int, ping func() error) 
 
 	err = endpoint.update(connection)
 	if err != nil {
+		connection.Close()
 		return nil, err
 	}
 
@@ -124,8 +124,6 @@ func (ep *Endpoint) Close() {
 	close(ep.done)
 	ep.wg.Wait()
 	ep.CloseEvent <- struct{}{}
-
-	return
 }
 
 func (ep *Endpoint) update(connection *zk.Conn) error {
@@ -140,11 +138,13 @@ func (ep *Endpoint) update(connection *zk.Conn) error {
 		return nil
 	}
 
-	entityData, _ := json.Marshal(newEntity(ep.host, ep.port))
+	record := ep.ServerSet.ZKFmt.Create(ep.host, ep.port)
+	recordData, err := record.Marshal()
+	if err != nil {
+		return fmt.Errorf("failed to marshal zk record: %w", err)
+	}
 
-	var err error
-	ep.key, err = ep.ServerSet.registerEndpoint(connection, entityData)
-
+	ep.key, err = ep.ServerSet.registerEndpoint(connection, recordData)
 	return err
 }
 
@@ -155,7 +155,7 @@ func (ss *ServerSet) registerEndpoint(connection *zk.Conn, data []byte) (string,
 	}
 
 	return connection.Create(
-		ss.directoryPath()+"/"+MemberPrefix,
+		ss.directoryPath()+"/"+ss.ZKFmt.Prefix(),
 		data,
 		zk.FlagEphemeral|zk.FlagSequence,
 		zk.WorldACL(zk.PermAll))

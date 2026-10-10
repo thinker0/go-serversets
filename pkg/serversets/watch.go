@@ -1,11 +1,8 @@
 package serversets
 
 import (
-	"encoding/json"
 	"log"
-	"net"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,9 +28,9 @@ type Watch struct {
 	done chan struct{} // used for closing
 	wg   sync.WaitGroup
 
-	// lock for read/writing the endpoints slice
-	lock      sync.RWMutex
-	endpoints []Entity
+	// lock for read/writing the records slice
+	lock    sync.RWMutex
+	records []ZKRecord
 }
 
 // Watch creates a new watch on this server set. Changes to the set will
@@ -50,15 +47,22 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 		return nil, err
 	}
 
-	keys, watchEvents, err := watch.watch(connection)
+	// Ensure path exists before watching
+	err = ss.createFullPath(connection)
 	if err != nil {
-		defer connection.Close()
+		connection.Close()
 		return nil, err
 	}
 
-	watch.endpoints, err = watch.updateEndpoints(connection, keys)
+	keys, watchEvents, err := watch.watch(connection)
 	if err != nil {
-		defer connection.Close()
+		connection.Close()
+		return nil, err
+	}
+
+	watch.records, err = watch.updateRecords(connection, keys)
+	if err != nil {
+		connection.Close()
 		return nil, err
 	}
 
@@ -87,7 +91,7 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 					continue
 				}
 
-				watch.endpoints, err = watch.updateEndpoints(connection, keys)
+				watch.records, err = watch.updateRecords(connection, keys)
 				if err != nil {
 					time.Sleep(1 * time.Second)
 					log.Printf("unable to update endpoint list after session expired: %v", err)
@@ -104,25 +108,26 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 					connection = nil
 				}
 			case <-watchEvents:
+				watchEvents = nil
+
 				keys, watchEvents, err = watch.watch(connection)
 				if err != nil {
-					log.Printf("unable to rewatch endpoint after znode event: %v", err)
+					log.Printf("unable to reregister watch after znode event: %v", err)
 					break
 				}
 
-				endpoints, err := watch.updateEndpoints(connection, keys)
+				records, err := watch.updateRecords(connection, keys)
 				if err != nil {
-					log.Printf("unable to updated endpoint list after znode event: %v", err)
+					log.Printf("unable to update endpoint list after znode event: %v", err)
 					watchEvents = nil
 					break
 				}
 
 				watch.lock.Lock()
-				watch.endpoints = endpoints
+				watch.records = records
 				watch.lock.Unlock()
 
 				watch.triggerEvent()
-
 			case <-watch.done:
 				connection.Close()
 				return
@@ -133,25 +138,44 @@ func (ss *ServerSet) Watch() (*Watch, error) {
 	return watch, nil
 }
 
-// Endpoints returns a slice of the current list of servers/endpoints associated with this watch.
+// Endpoints returns a slice of the current list of endpoints associated with this watch,
+// sorted in alphabetical order.
 func (w *Watch) Endpoints() []string {
 	w.lock.RLock()
 	defer w.lock.RUnlock()
-	endpoints := make([]string, 0, len(w.endpoints))
-	for _, e := range w.endpoints {
-		endpoints = append(endpoints, net.JoinHostPort(e.ServiceEndpoint.Host, strconv.Itoa(e.ServiceEndpoint.Port)))
+	endpoints := make([]string, 0, len(w.records))
+	for _, r := range w.records {
+		endpoints = append(endpoints, r.Endpoint())
 	}
 
 	sort.Strings(endpoints)
 	return endpoints
 }
 
-// EndpointEntities returns a slice of the current list of Entites associated with this watch, collected at the last event.
+// EndpointRecords returns a slice of the current list of ZKRecords associated with this watch.
+func (w *Watch) EndpointRecords() []ZKRecord {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+
+	records := make([]ZKRecord, len(w.records))
+	copy(records, w.records)
+	return records
+}
+
+// EndpointEntities returns a slice of the current list of Entities associated with this watch, collected at the last event.
+// For non-Finagle records, entries that cannot be converted to Entity are skipped.
 func (w *Watch) EndpointEntities() []Entity {
 	w.lock.RLock()
 	defer w.lock.RUnlock()
 
-	return w.endpoints
+	entities := make([]Entity, 0, len(w.records))
+	for _, r := range w.records {
+		if fr, ok := r.(*FinagleRecord); ok {
+			entities = append(entities, *fr)
+		}
+	}
+
+	return entities
 }
 
 // Event returns the event channel. This channel will get an object
@@ -160,26 +184,7 @@ func (w *Watch) Event() <-chan struct{} {
 	return w.event
 }
 
-// Close blocks until the underlying Zookeeper connection is closed.
-func (w *Watch) Close() {
-	select {
-	case <-w.done:
-		w.wg.Wait()
-		return
-	default:
-	}
-
-	close(w.done)
-	w.wg.Wait()
-
-	// the goroutine watching for events must be terminted
-	// before we close this channel, since it might still be sending events.
-	close(w.event)
-	return
-}
-
-// IsClosed returns if this watch has been closed. This is a way for libraries wrapping
-// this package to know if their underlying watch is closed and should stop looking for events.
+// IsClosed returns true if this watch is closed.
 func (w *Watch) IsClosed() bool {
 	select {
 	case <-w.done:
@@ -190,72 +195,72 @@ func (w *Watch) IsClosed() bool {
 	return false
 }
 
-// watch creates the actual Zookeeper watch.
-func (w *Watch) watch(connection *zk.Conn) ([]string, <-chan zk.Event, error) {
-	err := w.serverSet.checkExistsFullPath(connection)
-	if err != nil {
-		return nil, nil, err
+// Close closes the watch.
+func (w *Watch) Close() {
+	select {
+	case <-w.done:
+		return
+	default:
 	}
 
+	close(w.done)
+	w.wg.Wait()
+}
+
+func (w *Watch) watch(connection *zk.Conn) ([]string, <-chan zk.Event, error) {
 	children, _, events, err := connection.ChildrenW(w.serverSet.directoryPath())
 	return children, events, err
 }
 
-func (w *Watch) updateEndpoints(connection *zk.Conn, keys []string) ([]Entity, error) {
-	endpoints := make([]Entity, 0, len(keys))
+func (w *Watch) updateRecords(connection *zk.Conn, keys []string) ([]ZKRecord, error) {
+	records := make([]ZKRecord, 0, len(keys))
 
+	prefix := w.serverSet.ZKFmt.Prefix()
 	for _, k := range keys {
-		if !strings.HasPrefix(k, MemberPrefix) {
+		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
 
-		e, err := w.getEndpoint(connection, k)
+		r, err := w.getRecord(connection, k)
 		if err != nil {
 			return nil, err
 		}
 
-		if e == nil {
+		if r == nil {
 			// znode not found
 			continue
 		}
 
-		if e.Status == statusAlive {
-			endpoints = append(endpoints, *e)
+		if r.IsAlive() {
+			records = append(records, r)
 		}
 	}
 
-	return endpoints, nil
-
+	return records, nil
 }
 
-func (w *Watch) getEndpoint(connection *zk.Conn, key string) (*Entity, error) {
-
+func (w *Watch) getRecord(connection *zk.Conn, key string) (ZKRecord, error) {
 	data, _, err := connection.Get(w.serverSet.directoryPath() + "/" + key)
 	if err == zk.ErrNoNode {
 		return nil, nil
 	}
 
 	if err != nil {
-		// most likely some sort of zk connection error
 		return nil, err
 	}
-
-	// Found this SOH check while browsing the docker/libkv source
-	// https://github.com/docker/libkv/commit/035e8143a336ceb29760c07278ef930f49767377
 
 	// FIXME handle very rare cases where Get returns the
 	// SOH control character instead of the actual value
 	if string(data) == SOH {
-		return w.getEndpoint(connection, key)
+		return w.getRecord(connection, key)
 	}
 
-	e := &Entity{}
-	err = json.Unmarshal(data, &e)
+	r, err := w.serverSet.ZKFmt.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return e, err
+	return r, nil
 }
 
 // triggerEvent will queue up something in the Event channel if there isn't already something there.

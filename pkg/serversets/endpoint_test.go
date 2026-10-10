@@ -7,6 +7,7 @@ import (
 )
 
 func TestEndpointSameName(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
@@ -37,6 +38,7 @@ func TestEndpointSameName(t *testing.T) {
 }
 
 func TestEndpointPingInitiallyUp(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
@@ -82,6 +84,7 @@ func TestEndpointPingInitiallyUp(t *testing.T) {
 }
 
 func TestEndpointPingInitiallyDown(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
@@ -107,9 +110,6 @@ func TestEndpointPingInitiallyDown(t *testing.T) {
 	}
 	defer ep.Close()
 
-	// down so doesn't register itself
-	// <-watch.Event()
-
 	if l := len(watch.Endpoints()); l != 0 {
 		t.Errorf("should have zero endpoints, got %v", watch.Endpoints())
 	}
@@ -128,6 +128,7 @@ func TestEndpointPingInitiallyDown(t *testing.T) {
 }
 
 func TestEndpointClosePingRoutine(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 
 	ping := 0
@@ -149,6 +150,7 @@ func TestEndpointClosePingRoutine(t *testing.T) {
 }
 
 func TestEndpointMultipleClose(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 
 	ep, err := set.RegisterEndpoint("localhost", 1, nil)

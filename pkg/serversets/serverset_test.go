@@ -9,6 +9,7 @@ const TestServer = "localhost"
 
 // This is the big run through a typical use case of add and remove and make sure it works.
 func TestServerSetAddAndRemove(t *testing.T) {
+	requireZK(t)
 	set := New("test", "test", "gotest", []string{TestServer})
 	watch, err := set.Watch()
 	if err != nil {
@@ -116,7 +117,7 @@ func TestServerSetAddAndRemove(t *testing.T) {
 func TestBaseZnodePath(t *testing.T) {
 	// to verify nothing happens to the default
 	path := BaseZnodePath("test", "test", "gotest")
-	if path != "/discovery/test/gotest" {
+	if path != "/aurora/test/test/gotest" {
 		t.Errorf("baseznodepath incorrect, got %v", path)
 	}
 }
